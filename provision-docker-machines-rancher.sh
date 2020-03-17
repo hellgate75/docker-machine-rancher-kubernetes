@@ -1,7 +1,7 @@
 #!/bin/sh
-IP="$1"
-RANCHER_SERVER="$2"
 FOLDER="$(realpath "$(dirname "$0")")"
+RANCHER_SERVER="$1"
+IP="$(docker-machine ip ${PREFIX}rancher-node-master)"
 CMD_PREFIX=""
 if [ "windows" == "$($FOLDER/os.sh)" ]; then
 	echo "Welcome windows user ..."
