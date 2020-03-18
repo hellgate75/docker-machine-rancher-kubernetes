@@ -1,7 +1,6 @@
 #!/bin/sh
 FOLDER="$(realpath "$(dirname "$0")")"
-RANCHER_SERVER="$1"
-IP="$(docker-machine ip ${PREFIX}rancher-node-master)"
+PREFIX="$1"
 CMD_PREFIX=""
 if [ "windows" == "$($FOLDER/os.sh)" ]; then
 	echo "Welcome windows user ..."
@@ -16,7 +15,13 @@ else
 		exit 1
 	fi
 fi
+if [ "" != "$PREFIX" ]; then
+	PREFIX="${PREFIX}-"
+fi
 
+echo "Rancher master node: ${PREFIX}rancher-node-master"
+
+IP="$(docker-machine ip ${PREFIX}rancher-node-master)"
 
 while [ "" == "$(${CMD_PREFIX}curl -sL http://$IP1:8080/v2-beta 2> /dev/null)" ]; do echo "Waiting for Rancher server to be active: http://$IP1:8080/v2-beta"; sleep 20; done
 

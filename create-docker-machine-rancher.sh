@@ -3,6 +3,23 @@
 
 FOLDER="$(realpath "$(dirname "$0")")"
 CMD_PREFIX=""
+
+MEMORY="2048"
+DISKSIZE="25000"
+CORES="3"
+
+echo "Memory is $MEMORY MB"
+echo "Disk Size is $DISKSIZE MB"
+echo "Number of cores: $CORES"
+
+ANSWER=""
+while [ "y" != "$ANSWER" ] && [ "Y" != "$ANSWER" ] && [ "n" != "$ANSWER" ] && [ "N" != "$ANSWER" ]; do
+	read -p "Do you agree with given resources for 3 hosts? [y/N]: " ANSWER
+done
+if [ "n" != "$ANSWER" ] || [ "N" != "$ANSWER" ]; then
+	echo "User interrupt request ..."
+fi
+
 if [ "windows" == "$($FOLDER/os.sh)" ]; then
 	echo "Welcome windows user ..."
 	CMD_PREFIX="$FOLDER/"
@@ -29,10 +46,10 @@ MACHINE_RESOURCES=""
 
 if [ "-hv" == "$1" ]; then
 	echo "Using Microsoft Hyper-V provisioner ..."
-	MACHINE_RESOURCES="-d hyperv --hyperv-memory 3072 --hyperv-disk-size 25000 --hyperv-cpu-count 3 --hyperv-boot2docker-url "
+	MACHINE_RESOURCES="-d hyperv --hyperv-memory $MEMORY --hyperv-disk-size $DISKSIZE --hyperv-cpu-count $CORES --hyperv-disable-dynamic-memory --hyperv-boot2docker-url "
 elif  [ "-vb" == "$1" ]; then
 	echo "Using Oracle VirtualBox provisioner ..."
-	MACHINE_RESOURCES="-d virtualbox --virtualbox-memory 3072 --virtualbox-disk-size 25000 --virtualbox-cpu-count 3--virtualbox-boot2docker-url "
+	MACHINE_RESOURCES="-d virtualbox --virtualbox-memory $MEMORY --virtualbox-disk-size $DISKSIZE --virtualbox-cpu-count $CORES --virtualbox-disable-dynamic-memory --virtualbox-boot2docker-url "
 else
 	echo "$(usage)"
 	exit 1
@@ -48,8 +65,9 @@ docker-machine create $MACHINE_RESOURCES https://releases.rancher.com/os/latest/
 echo "MASTER Rancher node installing curl container ..."
 docker-machine ssh optiim-rancher-node-master "sudo sh -c \"echo \\\"docker run --rm curlimages/curl \$ @\\\" > /usr/bin/curl && chmod +x /usr/bin/curl && sed -i 's/$ @/\\\$@/g' /usr/bin/curl && curl --help \""
 echo "MASTER Rancher node installing Rancher Server ..."
+docker-machine ssh ${PREFIX}rancher-node-master "sudo mkdir /var/lib/cattle && sudo mkdir /var/lib/mysql && sudo mkdir /var/log/mysql"
 docker-machine ssh ${PREFIX}rancher-node-master "sudo system-docker pull rancher/server"
-docker-machine ssh ${PREFIX}rancher-node-master "sudo system-docker run -d --restart=always -p 8080:8080 -p 8081:8081 -it --user root:root --privileged --name rancher-server rancher/server"
+docker-machine ssh ${PREFIX}rancher-node-master "sudo system-docker run -d --restart=always -v /var/lib/cattle:/var/lib/cattle -v /var/lib/mysql:/var/lib/mysql -v /var/log/mysql:/var/log/mysql -p 8080:8080 -p 8081:8081 -p 8088:8088 -p 9345:9345 -p 9000:9000 -p 3306:3306 -it --user root:root --privileged --name rancher-server rancher/server"
 IP1="$(docker-machine ip ${PREFIX}rancher-node-master)"
 echo "MASTER Rancher node Ip: $IP1"
 while [ "" == "$(${CMD_PREFIX}curl -sL http://$IP1:8080/v1 2> /dev/null)" ]; do echo "Waiting for Rancher server to be active: http://$IP1:8080"; sleep 20; done
@@ -73,7 +91,7 @@ if [ "" != "$COMMAND" ]; then
 else
 	echo "Please register your server ${PREFIX}rancher-node-2 manually on the web interface at: http://$IP1:8080 -> Host"
 fi
-
+sleep 30
 echo "Creating SLAVE Rancher node #2 ..."
 docker-machine create $MACHINE_RESOURCES https://releases.rancher.com/os/latest/rancheros.iso \
  ${PREFIX}rancher-node-3
@@ -99,4 +117,4 @@ echo "Rancher Server Url: http://$IP1:8080"
 echo "----------------------------------"
 echo ""
 echo "Provisinging Rancher Kubernetes cluster"
-$FOLDER/provision-docker-machines-rancher.sh "${PREFIX}rancher-node-master"
+$FOLDER/provision-docker-machines-rancher.sh "${PREFIX}"
