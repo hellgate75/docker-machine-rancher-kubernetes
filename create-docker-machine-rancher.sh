@@ -139,11 +139,11 @@ if [ "-f" != "$3" ]; then
 fi
 
 
-IP1="$(docker-machine ip ${PREFIX}rancher-node-master)"
-PROJECT_ID="$(${CMD_PREFIX}curl -sL http://$IP1:8080/v1/projects | ${CMD_PREFIX}jq -r '.data[0].id')"
-echo "Provisinging Rancher Kubernetes cluster"
-$FOLDER/provision-docker-machines-rancher.sh "$PROJECT_ID" "${PASS_PRFX}" "$3"
-exit 0
+#IP1="$(docker-machine ip ${PREFIX}rancher-node-master)"
+#PROJECT_ID="$(${CMD_PREFIX}curl -sL http://$IP1:8080/v1/projects | ${CMD_PREFIX}jq -r '.data[0].id')"
+#echo "Provisinging Rancher Kubernetes cluster"
+#$FOLDER/provision-docker-machines-rancher.sh "$PROJECT_ID" "${PASS_PRFX}" "${PASS_PRFX}" "$3"
+#exit 0
 
 MACHINE_RESOURCES=""
 
@@ -214,5 +214,5 @@ echo "Rancher Server Url: http://$IP1:8080"
 echo "----------------------------------"
 echo ""
 echo "Provisinging Rancher Kubernetes cluster"
-$FOLDER/provision-docker-machines-rancher.sh "$PROJECT_ID" "${PASS_PRFX}" "$3"
+$FOLDER/provision-docker-machines-rancher.sh "$PROJECT_ID" "${PASS_PRFX}" "${PASS_PRFX}" "$3"
 exit 0
