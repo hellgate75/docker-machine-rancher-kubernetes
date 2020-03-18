@@ -1,5 +1,37 @@
 #!/bin/sh
 
+function checkNumber() {
+	case $1 in
+		''|*[!0-9]*) echo "false" ;;
+		*) echo "true" ;;
+	esac
+}
+
+function usage(){
+	echo "create-docker-machine-rancher.sh [-hv|-vb] {nodes_prefix} [-f]"
+	echo "  -hv    		   Use Hyper-V provisioning provider"
+	echo "  -vb    		   Use VirtualBox provisioning provider"
+	echo "  nodes_prefix   Prefix used to create VMs"
+	echo "  -f     		   Force and create environment without questions"
+}
+
+function printVMAttributes(){
+	echo "-------------------------------------"
+	echo "Memory is $MEMORY MB"
+	echo "Disk Size is $DISKSIZE MB"
+	echo "Number of cores: $CORES"
+	echo "-------------------------------------"
+	echo " "
+}
+
+function printNewVMAttributes(){
+	echo "-------------------------------------"
+	echo "Memory is $1 MB"
+	echo "Disk Size is $2 MB"
+	echo "Number of cores: $3"
+	echo "-------------------------------------"
+	echo " "
+}
 
 FOLDER="$(realpath "$(dirname "$0")")"
 CMD_PREFIX=""
@@ -8,55 +40,120 @@ MEMORY="2048"
 DISKSIZE="25000"
 CORES="3"
 
-echo "Memory is $MEMORY MB"
-echo "Disk Size is $DISKSIZE MB"
-echo "Number of cores: $CORES"
-
-ANSWER=""
-while [ "y" != "$ANSWER" ] && [ "Y" != "$ANSWER" ] && [ "n" != "$ANSWER" ] && [ "N" != "$ANSWER" ]; do
-	read -p "Do you agree with given resources for 3 hosts? [y/N]: " ANSWER
-done
-if [ "n" != "$ANSWER" ] || [ "N" != "$ANSWER" ]; then
-	echo "User interrupt request ..."
-fi
+PREFIX="$2"
+PASS_PRFX="$2"
 
 if [ "windows" == "$($FOLDER/os.sh)" ]; then
+	echo " "
 	echo "Welcome windows user ..."
+	echo "We assign to you custom curl and jq commands!!"
+	echo " "
 	CMD_PREFIX="$FOLDER/"
 else
 	if [ "" = "$(which curl)" ]; then
+		echo " "
 		echo "Please install curl and check if you have installed jq, before proceed ..."
+		echo " "
 		exit 1
 	fi
 	if [ "" = "$(which jq)" ]; then
+		echo " "
 		echo "Please install jq, before proceed ..."
+		echo " "
 		exit 1
 	fi
 fi
-
-function usage(){
-	echo "docker-machine-rancher.sh [-hv|-vb] {nodes_prefix}"
-	echo "  -hv    Use Hyper-V provisioning provider"
-	echo "  -vb    Use VirtualBox provisioning provider"
-}
-
-PREFIX="$2"
 
 MACHINE_RESOURCES=""
 
 if [ "-hv" == "$1" ]; then
 	echo "Using Microsoft Hyper-V provisioner ..."
-	MACHINE_RESOURCES="-d hyperv --hyperv-memory $MEMORY --hyperv-disk-size $DISKSIZE --hyperv-cpu-count $CORES --hyperv-disable-dynamic-memory --hyperv-boot2docker-url "
 elif  [ "-vb" == "$1" ]; then
 	echo "Using Oracle VirtualBox provisioner ..."
-	MACHINE_RESOURCES="-d virtualbox --virtualbox-memory $MEMORY --virtualbox-disk-size $DISKSIZE --virtualbox-cpu-count $CORES --virtualbox-disable-dynamic-memory --virtualbox-boot2docker-url "
 else
 	echo "$(usage)"
 	exit 1
 fi
 
+echo "Rancher Project: $PREFIX"
+
+
 if [ "" != "$PREFIX" ]; then
 	PREFIX="${PREFIX}-"
+fi
+
+echo "Default VM attributes:"
+echo -e "$(printVMAttributes)"
+
+if [ "-f" != "$3" ]; then 
+	ANSWER=""
+	while [ "y" != "$ANSWER" ] && [ "Y" != "$ANSWER" ] && [ "n" != "$ANSWER" ] && [ "N" != "$ANSWER" ]; do
+		read -p "Do you agree with given resources for used by 3 hosts? [y/N]: " ANSWER
+	done
+
+	CHANGES="no"
+
+	while [ "n" = "$ANSWER" ] || [ "N" = "$ANSWER" ]; do
+		read -p "Please provide memory used by any machine in MB? [default $MEMORY]: " MEM_INPUT
+		if [ "" != "$MEM_INPUT" ]; then
+			if [ "true" == "$(checkNumber "$MEM_INPUT")" ]; then
+				CHANGES="yes"
+			else
+				echo "Memory parameter must be  number, we keep $MEMORY value"
+			fi
+		fi
+		read -p "Please provide disk size used by any machine in MB? [default $DISKSIZE]: " DISK_INPUT
+		if [ "" != "$DISK_INPUT" ]; then
+			if [ "true" == "$(checkNumber "$DISK_INPUT")" ]; then
+				CHANGES="yes"
+			else
+				echo "Disk size parameter must be  number, we keep $DISKSIZE value"
+			fi
+		fi
+		read -p "Please provide host assigned CPU cores used by any machine? [default $CORES]: " CORES_INPUT
+		if [ "" != "$CORES_INPUT" ]; then
+			if [ "true" == "$(checkNumber "$CORES_INPUT")" ]; then
+				CHANGES="yes"
+			else
+				echo "Host assigned CPU cores parameter must be  number, we keep $CORES value"
+			fi
+		fi
+		if [ "yes" == "$CHANGES" ]; then
+			echo " "
+			echo "Here applied changes:"
+			echo -e "$(printNewVMAttributes "$MEM_INPUT" "$DISK_INPUT" "$CORES_INPUT")"
+		else
+			echo " "
+			echo "No changes done on the default VM attributes..."
+			echo " "
+		fi
+		read -p "Do you agree with given resources for used by 3 hosts? [y/N]: " ANSWER
+		if [ "yes" == "$CHANGES" ]; then
+			if [ "y" = "$ANSWER" ] || [ "Y" = "$ANSWER" ]; then
+				MEMORY="$MEM_INPUT"
+				DISKSIZE="$DISK_INPUT"
+				CORES="$CORES_INPUT"
+			fi
+		fi
+	done
+fi
+
+
+IP1="$(docker-machine ip ${PREFIX}rancher-node-master)"
+PROJECT_ID="$(${CMD_PREFIX}curl -sL http://$IP1:8080/v1/projects | ${CMD_PREFIX}jq -r '.data[0].id')"
+echo "Provisinging Rancher Kubernetes cluster"
+$FOLDER/provision-docker-machines-rancher.sh "$PROJECT_ID" "${PASS_PRFX}" "$3"
+exit 0
+
+MACHINE_RESOURCES=""
+
+if [ "-hv" == "$1" ]; then
+	MACHINE_RESOURCES="-d hyperv --hyperv-memory $MEMORY --hyperv-disk-size $DISKSIZE --hyperv-cpu-count $CORES --hyperv-disable-dynamic-memory --hyperv-boot2docker-url "
+elif  [ "-vb" == "$1" ]; then
+	MACHINE_RESOURCES="-d virtualbox --virtualbox-memory $MEMORY --virtualbox-disk-size $DISKSIZE --virtualbox-cpu-count $CORES --virtualbox-disable-dynamic-memory --virtualbox-boot2docker-url "
+else
+	echo "$(usage)"
+	exit 1
 fi
 
 echo "Creating MASTER Rancher node ..."
@@ -117,4 +214,5 @@ echo "Rancher Server Url: http://$IP1:8080"
 echo "----------------------------------"
 echo ""
 echo "Provisinging Rancher Kubernetes cluster"
-$FOLDER/provision-docker-machines-rancher.sh "${PREFIX}"
+$FOLDER/provision-docker-machines-rancher.sh "$PROJECT_ID" "${PASS_PRFX}" "$3"
+exit 0
