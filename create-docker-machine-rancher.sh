@@ -8,37 +8,59 @@ function checkNumber() {
 }
 
 function usage(){
-	echo "create-docker-machine-rancher.sh [-hv|-vb] {nodes_prefix} [-f]"
+	echo "create-docker-machine-rancher.sh [-hv|-vb|-gce] {nodes_prefix} [-f]"
 	echo "  -hv    		   Use Hyper-V provisioning provider"
 	echo "  -vb    		   Use VirtualBox provisioning provider"
+	echo "  -gce		   Use Google Cloud Engine provider"
 	echo "  nodes_prefix   Prefix used to create VMs"
 	echo "  -f     		   Force and create environment without questions"
 }
 
 function printVMAttributes(){
 	echo "-------------------------------------"
+	if [ "-hv" == "$ENGINE" ] || [ "-vb" == "$ENGINE" ]; then
 	echo "Memory is $MEMORY MB"
 	echo "Disk Size is $DISKSIZE MB"
 	echo "Number of cores: $CORES"
+	elif [ "-gce" == "$ENGINE" ]; then
+		echo "GCE credentials file: $GCE_CRED"
+		echo "GCE project: $GCE_PROJECT"
+		echo "GCE region: $GCE_REGION"
+		echo "GCE machine type: $GCE_MACHINE_SIZE"
+		echo "GCE disk size: $GCE_DISK_SIZE"
+	fi
 	echo "-------------------------------------"
 	echo " "
 }
 
 function printNewVMAttributes(){
 	echo "-------------------------------------"
-	echo "Memory is $1 MB"
-	echo "Disk Size is $2 MB"
-	echo "Number of cores: $3"
+	if [ "-hv" == "$1" ] || [ "-vb" == "$1" ]; then
+		echo "Memory is $2 MB"
+		echo "Disk Size is $3 MB"
+		echo "Number of cores: $4"
+	elif [ "-gce" == "$1" ]; then
+		echo "GCE credentials file: $5"
+		echo "GCE project: $6"
+		echo "GCE region: $7"
+		echo "GCE machine type: $8"
+		echo "GCE disk size: $9"
+	fi
 	echo "-------------------------------------"
 	echo " "
 }
-
+ENGINE="$1"
 FOLDER="$(realpath "$(dirname "$0")")"
 CMD_PREFIX=""
 
 MEMORY="2048"
 DISKSIZE="25000"
 CORES="3"
+GCE_CRED="$HOME/gce-credentials.json"
+GCE_PROJECT="<none>"
+GCE_REGION="europe-west2"
+GCE_MACHINE_SIZE="n1-standard-2"
+GCE_DISK_SIZE="25000"
 
 PREFIX="$2"
 PASS_PRFX="$2"
@@ -70,6 +92,8 @@ if [ "-hv" == "$1" ]; then
 	echo "Using Microsoft Hyper-V provisioner ..."
 elif  [ "-vb" == "$1" ]; then
 	echo "Using Oracle VirtualBox provisioner ..."
+elif  [ "-gce" == "$1" ]; then
+	echo "Using Google Cloud Engine provisioner ..."
 else
 	echo "$(usage)"
 	exit 1
@@ -94,34 +118,77 @@ if [ "-f" != "$3" ]; then
 	CHANGES="no"
 
 	while [ "n" = "$ANSWER" ] || [ "N" = "$ANSWER" ]; do
-		read -p "Please provide memory used by any machine in MB? [default $MEMORY]: " MEM_INPUT
-		if [ "" != "$MEM_INPUT" ]; then
-			if [ "true" == "$(checkNumber "$MEM_INPUT")" ]; then
-				CHANGES="yes"
-			else
-				echo "Memory parameter must be  number, we keep $MEMORY value"
+		if [ "-hv" == "$ENGINE" ] || [ "-vb" == "$ENGINE" ]; then
+			read -p "Please provide memory used by any machine in MB? [default $MEMORY]: " MEM_INPUT
+			if [ "" != "$MEM_INPUT" ]; then
+				if [ "true" == "$(checkNumber "$MEM_INPUT")" ]; then
+					CHANGES="yes"
+				else
+					MEM_INPUT="$MEMORY"
+					echo "Memory parameter must be  number, we keep $MEMORY value"
+				fi
 			fi
-		fi
-		read -p "Please provide disk size used by any machine in MB? [default $DISKSIZE]: " DISK_INPUT
-		if [ "" != "$DISK_INPUT" ]; then
-			if [ "true" == "$(checkNumber "$DISK_INPUT")" ]; then
-				CHANGES="yes"
-			else
-				echo "Disk size parameter must be  number, we keep $DISKSIZE value"
+			read -p "Please provide disk size used by any machine in MB? [default $DISKSIZE]: " DISK_INPUT
+			if [ "" != "$DISK_INPUT" ]; then
+				if [ "true" == "$(checkNumber "$DISK_INPUT")" ]; then
+					CHANGES="yes"
+				else
+					DISK_INPUT="$DISKSIZE"
+					echo "Disk size parameter must be  number, we keep $DISKSIZE value"
+				fi
 			fi
-		fi
-		read -p "Please provide host assigned CPU cores used by any machine? [default $CORES]: " CORES_INPUT
-		if [ "" != "$CORES_INPUT" ]; then
-			if [ "true" == "$(checkNumber "$CORES_INPUT")" ]; then
+			read -p "Please provide host assigned CPU cores used by any machine? [default $CORES]: " CORES_INPUT
+			if [ "" != "$CORES_INPUT" ]; then
+				if [ "true" == "$(checkNumber "$CORES_INPUT")" ]; then
+					CHANGES="yes"
+				else
+					CORES_INPUT="$CORES"
+					echo "Host assigned CPU cores parameter must be  number, we keep $CORES value"
+				fi
+			fi
+		elif [ "-gce" == "$ENGINE" ]; then
+			read -p "Please provide credentials file? [default $GCE_CRED]: " GCE_CRED_INPUT
+			if [ "" != "$GCE_CRED_INPUT" ]; then
 				CHANGES="yes"
 			else
-				echo "Host assigned CPU cores parameter must be  number, we keep $CORES value"
+				GCE_CRED_INPUT="$GCE_CRED"
+				echo "GCE Credentials parameter must be not empty, we keep $GCE_CRED value"
+			fi
+			read -p "Please provide GCE project? [default $GCE_PROJECT]: " GCE_PROJECT_INPUT
+			if [ "" != "$GCE_PROJECT_INPUT" ]; then
+				CHANGES="yes"
+			else
+				GCE_PROJECT_INPUT="$GCE_PROJECT"
+				echo "GCE Project parameter must be not empty, we keep $GCE_PROJECT value"
+			fi
+			read -p "Please provide GCE region? [default $GCE_REGION]: " GCE_REGION_INPUT
+			if [ "" != "$GCE_REGION_INPUT" ]; then
+				CHANGES="yes"
+			else
+				GCE_REGION_INPUT="$GCE_REGION"
+				echo "GCE region parameter must be not empty, we keep $GCE_REGION value"
+			fi
+			read -p "Please provide GCE machine size? [default $GCE_MACHINE_SIZE]: " GCE_MACHINE_SIZE_INPUT
+			if [ "" != "$GCE_MACHINE_SIZE_INPUT" ]; then
+				CHANGES="yes"
+			else
+				GCE_MACHINE_SIZE_INPUT="$GCE_MACHINE_SIZE"
+				echo "GCE machine size parameter must be not empty, we keep $GCE_MACHINE_SIZE_INPUT value"
+			fi
+			read -p "Please provide GCE disk size used by any machine in MB? [default $GCE_DISK_SIZE]: " GCE_DISK_SIZE_INPUT
+			if [ "" != "$GCE_DISK_SIZE_INPUT" ]; then
+				if [ "true" == "$(checkNumber "$GCE_DISK_SIZE_INPUT")" ]; then
+					CHANGES="yes"
+				else
+					GCE_DISK_SIZE_INPUT="$GCE_DISK_SIZE"
+					echo "GCE Disk size parameter must be  number, we keep $GCE_DISK_SIZE value"
+				fi
 			fi
 		fi
 		if [ "yes" == "$CHANGES" ]; then
 			echo " "
 			echo "Here applied changes:"
-			echo -e "$(printNewVMAttributes "$MEM_INPUT" "$DISK_INPUT" "$CORES_INPUT")"
+			echo -e "$(printNewVMAttributes "$ENGINE" "$MEM_INPUT" "$DISK_INPUT" "$CORES_INPUT" "$GCE_CRED_INPUT" "$GCE_PROJECT_INPUT" "$GCE_REGION_INPUT" "$GCE_MACHINE_SIZE_INPUT" "$GCE_DISK_SIZE_INPUT")"
 		else
 			echo " "
 			echo "No changes done on the default VM attributes..."
@@ -130,9 +197,17 @@ if [ "-f" != "$3" ]; then
 		read -p "Do you agree with given resources for used by 3 hosts? [y/N]: " ANSWER
 		if [ "yes" == "$CHANGES" ]; then
 			if [ "y" = "$ANSWER" ] || [ "Y" = "$ANSWER" ]; then
-				MEMORY="$MEM_INPUT"
-				DISKSIZE="$DISK_INPUT"
-				CORES="$CORES_INPUT"
+				if [ "-hv" == "$ENGINE" ] || [ "-vb" == "$ENGINE" ]; then
+					MEMORY="$MEM_INPUT"
+					DISKSIZE="$DISK_INPUT"
+					CORES="$CORES_INPUT"
+				elif [ "-gce" == "$ENGINE" ]; then
+					GCE_CRED="$GCE_CRED_INPUT"
+					GCE_PROJECT="$GCE_PROJECT_INPUT"
+					GCE_REGION="$GCE_REGION_INPUT"
+					GCE_MACHINE_SIZE="$GCE_MACHINE_SIZE_INPUT"
+					GCE_DISK_SIZE="$GCE_DISK_SIZE_INPUT"
+				fi
 			fi
 		fi
 	done
@@ -151,6 +226,9 @@ if [ "-hv" == "$1" ]; then
 	MACHINE_RESOURCES="-d hyperv --hyperv-memory $MEMORY --hyperv-disk-size $DISKSIZE --hyperv-cpu-count $CORES --hyperv-disable-dynamic-memory --hyperv-boot2docker-url "
 elif  [ "-vb" == "$1" ]; then
 	MACHINE_RESOURCES="-d virtualbox --virtualbox-memory $MEMORY --virtualbox-disk-size $DISKSIZE --virtualbox-cpu-count $CORES --virtualbox-disable-dynamic-memory --virtualbox-boot2docker-url "
+elif  [ "-gce" == "$1" ]; then
+	export GOOGLE_APPLICATION_CREDENTIALS=$GCE_CRED
+	MACHINE_RESOURCES="-d google --google-project \"$GCE_PROJECT\" --google-zone \"$GCE_REGION\"  --google-machine-type \"$GCE_MACHINE_SIZE\" --google-disk-size \"$GCE_DISK_SIZE\" --google-machine-image "
 else
 	echo "$(usage)"
 	exit 1
