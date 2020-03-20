@@ -245,7 +245,7 @@ echo " "
 echo "Converting templates in files, using project prefix for unique file name..."
 echo "Starting Kuberbetes Cluster: $PROJECT_NAME Kubernetes"
 cp $FOLDER/kubernetes/docker-compose.2.yml $FOLDER/kubernetes/${PREFIX}docker-compose.yml
-sed -i 's/\$\${stack_name}/default-kubernetes/g' $FOLDER/kubernetes/${PREFIX}docker-compose.yml
+sed -i 's/\$\${stack_name}/$PROJECT_NAME-kubernetes/g' $FOLDER/kubernetes/${PREFIX}docker-compose.yml
 sed -i 's/\$\${service_name}/optiim-kubernetes/g' $FOLDER/kubernetes/${PREFIX}docker-compose.yml
 
 CLUSTER_IP_PRFIX="10.43.0"
@@ -260,7 +260,7 @@ $RANCHER_COMPOSE_CMD \
  --file $FOLDER/kubernetes/${PREFIX}docker-compose.yml \
  --env-file $FOLDER/kubernetes/${PREFIX}answers.txt \
  --rancher-file $FOLDER/kubernetes/rancher-compose.yml \
- --project-name "$PROJECT_NAME Kubernetes Cluster" \
+ --project-name "$PROJECT_NAME Kubernetes" \
  --url http://$IP:8080/v2-beta/projects/$PROJECT_ID/stacks up -d --pull
 echo "Removung converted templates in files..."
 rm -f $FOLDER/kubernetes/${PREFIX}docker-compose.yml
