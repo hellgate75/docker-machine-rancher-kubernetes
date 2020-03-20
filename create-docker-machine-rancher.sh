@@ -16,7 +16,7 @@ if [ "" != "$RANCHER_KUBERNETES_NODES" ] && [ "true" = "$(checkNumber $RANCHER_K
 fi
 
 ENGINE="$1"
-if [ "-gce" = "$ENGINE"] && [ "" != "$(which dos2unix)" ]; then
+if [ "-gce" = "$ENGINE" ] && [ "" != "$(which dos2unix)" ]; then
 	dos2unix $FOLDER/install-docker.sh
 fi
 
@@ -358,7 +358,7 @@ echo " "
 
 echo "Creating MASTER Rancher node ..."
 docker-machine create $MACHINE_RESOURCES $ISO_IMAGE ${PREFIX}rancher-node-master
-if [ "-gce" = "$ENGINE"]; then
+if [ "-gce" = "$ENGINE" ]; then
 	echo "MASTER Rancher node: installing docker on host ..."
 	docker-machine.exe ssh ${PREFIX}-rancher-node-master "echo '$( cat $FOLDER/install-docker.sh )' > ./install-docker.sh && chmod 777 ./install-docker.sh && ./install-docker.sh"
 fi
@@ -378,7 +378,7 @@ IP_W=()
 for (( i=1; i<=$RANCHER_NODES; i++ )); do
 	echo "Creating SLAVE Rancher node #${i} ..."
 	docker-machine create $MACHINE_RESOURCES $ISO_IMAGE "${PREFIX}rancher-worker-${i}"
-	if [ "-gce" = "$ENGINE"]; then
+	if [ "-gce" = "$ENGINE" ]; then
 		echo "SLAVE Rancher node #${i}: installing docker on host ..."
 		docker-machine.exe ssh "${PREFIX}rancher-worker-${i}" "echo '$( cat $FOLDER/install-docker.sh )' > ./install-docker.sh && chmod 777 ./install-docker.sh && ./install-docker.sh"
 	fi
@@ -390,6 +390,8 @@ for (( i=1; i<=$RANCHER_NODES; i++ )); do
 	REG_TOKEN_REFERENCE="$(${CMD_PREFIX}curl -sL -X POST -H 'Accept: application/json' http://$IP1:8080/v1/registrationtokens?projectId=$PROJECT_ID 2> /dev/null|${CMD_PREFIX}/jq -r '.actions.activate' 2> /dev/null)"
 	sleep 5
 	COMMAND="$(${CMD_PREFIX}curl -s -X GET $REG_TOKEN_REFERENCE 2> /dev/null | ${CMD_PREFIX}jq -r '.command' 2> /dev/null)"
+	#Place server lables for kubernetes
+	COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"etcd=true\&orchestration=true\" /g')"
 	echo "SLAVE Rancher node #${i} Command: $COMMAND"
 	if [ "" != "$COMMAND" ]; then
 		docker-machine ssh "${PREFIX}rancher-worker-${i}" "$COMMAND"

@@ -1,12 +1,3 @@
-
-{{- $k8sImage:="rancher/k8s:v1.12.10-rancher1-1" }}
-{{- $etcdImage:="rancher/etcd:v2.3.7-17" }}
-{{- $kubectldImage:="rancher/kubectld:v0.8.11" }}
-{{- $etcHostUpdaterImage:="rancher/etc-host-updater:v0.0.3" }}
-{{- $k8sAgentImage:="rancher/kubernetes-agent:v0.6.9" }}
-{{- $k8sAuthImage:="rancher/kubernetes-auth:v0.0.8" }}
-{{- $ingressControllerImage:="rancher/lb-service-rancher:v0.9.13" }}
-
 kubelet:
     labels:
         io.rancher.container.dns: "true"
@@ -14,17 +5,13 @@ kubelet:
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent.role: environmentAdmin
         io.rancher.scheduler.global: "true"
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: compute=true
-        {{- end }}
+        io.rancher.stack_service.name: $${stack_name}/kubelet
     command:
         - kubelet
         - --kubeconfig=/etc/kubernetes/ssl/kubeconfig
         - --register-node=true
         - --cloud-provider=${CLOUD_PROVIDER}
-        {{- if (or (eq .Values.CLOUD_PROVIDER "azure") (and (eq .Values.CLOUD_PROVIDER "aws") (ne .Values.CLOUD_PROVIDER_CONFIG ""))) }}
-        - --cloud-config=/etc/kubernetes/cloud-provider-config
-        {{- end }}
         - --allow-privileged=true
         - --healthz-bind-address=0.0.0.0
         - --cluster-dns=${DNS_CLUSTER_IP}
@@ -36,32 +23,13 @@ kubelet:
         - --volume-plugin-dir=/var/lib/kubelet/volumeplugins
         - --client-ca-file=/etc/kubernetes/ssl/ca.pem
         - --cni-bin-dir=/opt/cni/bin,/opt/loopback/bin
-        {{- if and (ne .Values.REGISTRY "") (ne .Values.POD_INFRA_CONTAINER_IMAGE "") }}
-        - --pod-infra-container-image=${REGISTRY}/${POD_INFRA_CONTAINER_IMAGE}
-        {{- else if (ne .Values.POD_INFRA_CONTAINER_IMAGE "") }}
         - --pod-infra-container-image=${POD_INFRA_CONTAINER_IMAGE}
-        {{- end }}
         - --tls-cipher-suites=${KUBERNETES_CIPHER_SUITES}
-        {{- range $i, $elem := splitPreserveQuotes .Values.ADDITIONAL_KUBELET_FLAGS }}
-        - {{ $elem }}
-        {{- end }}
     environment:
         CLOUD_PROVIDER: ${CLOUD_PROVIDER}
         CLOUD_PROVIDER_CONFIG: |
           ${CLOUD_PROVIDER_CONFIG}
-    {{- if ne .Values.HTTP_PROXY "" }}
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTP_PROXY}
-        NO_PROXY: ${NO_PROXY}
-    {{- end }}
-    {{- if eq .Values.CLOUD_PROVIDER "azure" }}
-        AZURE_TENANT_ID: ${AZURE_TENANT_ID}
-        AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
-        AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
-        AZURE_SEC_GROUP: ${AZURE_SEC_GROUP}
-        AZURE_CLOUD: ${AZURE_CLOUD}
-    {{- end }}
-    image: {{$k8sImage}}
+    image: rancher/k8s:v1.12.10-rancher1-1
     volumes:
         - /run:/run:rprivate
         - /var/run:/var/run:rprivate
@@ -80,7 +48,6 @@ kubelet:
     links:
         - kubernetes
 
-{{- if eq .Values.CONSTRAINT_TYPE "required" }}
 kubelet-unschedulable:
     labels:
         io.rancher.container.dns: "true"
@@ -88,14 +55,12 @@ kubelet-unschedulable:
         io.rancher.container.agent.role: environmentAdmin
         io.rancher.scheduler.global: "true"
         io.rancher.scheduler.affinity:host_label_ne: compute=true
+        io.rancher.stack_service.name: $${stack_name}/kubelet-unschedulable
     command:
         - kubelet
         - --kubeconfig=/etc/kubernetes/ssl/kubeconfig
         - --register-node=true
         - --cloud-provider=${CLOUD_PROVIDER}
-        {{- if (or (eq .Values.CLOUD_PROVIDER "azure") (and (eq .Values.CLOUD_PROVIDER "aws") (ne .Values.CLOUD_PROVIDER_CONFIG ""))) }}
-        - --cloud-config=/etc/kubernetes/cloud-provider-config
-        {{- end }}
         - --allow-privileged=true
         - --anonymous-auth=false
         - --client-ca-file=/etc/kubernetes/ssl/ca.pem
@@ -106,34 +71,14 @@ kubelet-unschedulable:
         - --network-plugin=cni
         - --cni-conf-dir=/etc/cni/managed.d
         - --cni-bin-dir=/opt/cni/bin,/opt/loopback/bin
-        {{- if and (ne .Values.REGISTRY "") (ne .Values.POD_INFRA_CONTAINER_IMAGE "") }}
-        - --pod-infra-container-image=${REGISTRY}/${POD_INFRA_CONTAINER_IMAGE}
-        {{- else if (ne .Values.POD_INFRA_CONTAINER_IMAGE "") }}
         - --pod-infra-container-image=${POD_INFRA_CONTAINER_IMAGE}
-        {{- end }}
         - --register-schedulable=false
         - --tls-cipher-suites=${KUBERNETES_CIPHER_SUITES}
-        {{- range $i, $elem := splitPreserveQuotes .Values.ADDITIONAL_KUBELET_FLAGS }}
-        - {{ $elem }}
-        {{- end }}
     environment:
         CLOUD_PROVIDER: ${CLOUD_PROVIDER}
         CLOUD_PROVIDER_CONFIG: |
           ${CLOUD_PROVIDER_CONFIG}
-    {{- if ne .Values.HTTP_PROXY "" }}
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTP_PROXY}
-        NO_PROXY: ${NO_PROXY}
-    {{- end }}
-    {{- if eq .Values.CLOUD_PROVIDER "azure" }}
-        AZURE_TENANT_ID: ${AZURE_TENANT_ID}
-        AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
-        AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
-        AZURE_SEC_GROUP: ${AZURE_SEC_GROUP}
-        AZURE_CLOUD: ${AZURE_CLOUD}
-    {{- end }}
-
-    image: {{$k8sImage}}
+    image: rancher/k8s:v1.12.10-rancher1-1
     volumes:
         - /run:/run:rprivate
         - /var/run:/var/run:rprivate
@@ -151,7 +96,6 @@ kubelet-unschedulable:
     privileged: true
     links:
         - kubernetes
-{{- end }}
 
 proxy:
     command:
@@ -159,30 +103,27 @@ proxy:
         - --kubeconfig=/etc/kubernetes/ssl/kubeconfig
         - --v=2
         - --healthz-bind-address=0.0.0.0
-        {{- range $i, $elem := splitPreserveQuotes .Values.ADDITIONAL_KUBEPROXY_FLAGS }}
-        - {{ $elem }}
-        {{- end }}
-    image: {{$k8sImage}}
+    image: rancher/k8s:v1.12.10-rancher1-1
     labels:
         io.rancher.container.dns: "true"
         io.rancher.scheduler.global: "true"
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent.role: environmentAdmin
+        io.rancher.stack_service.name: $${stack_name}/proxy
     privileged: true
     net: host
     links:
         - kubernetes
 
 etcd:
-    image: {{$etcdImage}}
+    image: rancher/etcd:v2.3.7-17
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: etcd=true
-        {{- end }}
         io.rancher.scheduler.affinity:container_label_ne: io.rancher.stack_service.name=$${stack_name}/$${service_name}
         io.rancher.sidekicks: data
         io.rancher.container.agent.role: environmentAdmin
         io.rancher.container.create_agent: 'true'
+        io.rancher.stack_service.name: $${stack_name}/etcd
     environment:
         RANCHER_DEBUG: 'true'
         EMBEDDED_BACKUPS: '${EMBEDDED_BACKUPS}'
@@ -212,9 +153,7 @@ data:
 
 kubernetes:
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: orchestration=true
-        {{- end }}
         io.rancher.scheduler.affinity:container_label_soft: io.rancher.stack_service.name=$${stack_name}/rancher-kubernetes-auth
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent.role: environmentAdmin
@@ -222,6 +161,7 @@ kubernetes:
         io.rancher.websocket.proxy.port: "6443"
         io.rancher.websocket.proxy.scheme: "https"
         io.rancher.k8s.service.cluster.ip.range: ${SERVICE_CLUSTER_CIDR}
+        io.rancher.stack_service.name: $${stack_name}/kubernetes
     command:
         - kube-apiserver
         - --storage-backend=etcd2
@@ -231,9 +171,6 @@ kubernetes:
         - --insecure-bind-address=0.0.0.0
         - --insecure-port=0
         - --cloud-provider=${CLOUD_PROVIDER}
-        {{- if (or (eq .Values.CLOUD_PROVIDER "azure") (and (eq .Values.CLOUD_PROVIDER "aws") (ne .Values.CLOUD_PROVIDER_CONFIG ""))) }}
-        - --cloud-config=/etc/kubernetes/cloud-provider-config
-        {{- end }}
         - --allow-privileged=true
         - --admission-control=$ADMISSION_CONTROLLERS
         - --client-ca-file=/etc/kubernetes/ssl/ca.pem
@@ -249,83 +186,52 @@ kubernetes:
         - --etcd-cafile=/etc/kubernetes/etcd/ca.pem
         - --etcd-certfile=/etc/kubernetes/etcd/cert.pem
         - --etcd-keyfile=/etc/kubernetes/etcd/key.pem
-        {{- if eq .Values.AUDIT_LOGS "true" }}
         - --audit-log-path=-
         - --feature-gates=AdvancedAuditing=false
-        {{- end }}
-        {{- if eq .Values.RBAC "true" }}
-        - --authorization-mode=RBAC
-        {{- end }}
         - --tls-cipher-suites=${KUBERNETES_CIPHER_SUITES}
-        {{- range $i, $elem := splitPreserveQuotes .Values.ADDITIONAL_KUBEAPI_FLAGS }}
-        - {{ $elem }}
-        {{- end }}
     environment:
         CLOUD_PROVIDER: ${CLOUD_PROVIDER}
         CLOUD_PROVIDER_CONFIG: |
           ${CLOUD_PROVIDER_CONFIG}
         KUBERNETES_URL: https://kubernetes.kubernetes.rancher.internal:6443
-        {{- if ne .Values.HTTP_PROXY "" }}
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTP_PROXY}
-        NO_PROXY: ${NO_PROXY}
-        {{- end }}
-        {{- if eq .Values.CLOUD_PROVIDER "azure" }}
-        AZURE_TENANT_ID: ${AZURE_TENANT_ID}
-        AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
-        AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
-        AZURE_SEC_GROUP: ${AZURE_SEC_GROUP}
-        AZURE_CLOUD: ${AZURE_CLOUD}
-        {{- end }}
-    image: {{$k8sImage}}
+    image: rancher/k8s:v1.12.10-rancher1-1
     links:
         - etcd
 
 kube-hostname-updater:
+    labels:
+        io.rancher.stack_service.name: $${stack_name}/kube-hostname-updater
     net: container:kubernetes
     command:
         - etc-host-updater
-    image: {{$etcHostUpdaterImage}}
+    image: rancher/etc-host-updater:v0.0.3
     links:
         - kubernetes
 
 kubectld:
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: orchestration=true
-        {{- end }}
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent_service.kubernetes_stack: "true"
+        io.rancher.stack_service.name: $${stack_name}/kubectld
     environment:
         SERVER: http://kubernetes.kubernetes.rancher.internal
         LISTEN: ":8091"
-    {{- if ne .Values.HTTP_PROXY "" }}
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTP_PROXY}
-        NO_PROXY: ${NO_PROXY}
-    {{- end }}
-    image: {{$kubectldImage}}
+    image: rancher/kubectld:v0.8.11
     links:
         - kubernetes
 
 kubectl-shell:
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: orchestration=true
-        {{- end }}
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent.role: environmentAdmin
         io.rancher.k8s.kubectld: "true"
         io.rancher.k8s.token: "true"
+        io.rancher.stack_service.name: $${stack_name}/kubectl-shell
     command:
         - kubectl-shell-entry.sh
-    image: {{$kubectldImage}}
-    {{- if ne .Values.HTTP_PROXY "" }}
-    environment:
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTP_PROXY}
-        NO_PROXY: ${NO_PROXY}
-    {{- end }}
+    image: rancher/kubectld:v0.8.11
     privileged: true
     health_check:
         port: 10240
@@ -342,16 +248,12 @@ scheduler:
         - kube-scheduler
         - --kubeconfig=/etc/kubernetes/ssl/kubeconfig
         - --address=0.0.0.0
-        {{- range $i, $elem := splitPreserveQuotes .Values.ADDITIONAL_KUBESCHEDULER_FLAGS }}
-        - {{ $elem }}
-        {{- end }}
-    image: {{$k8sImage}}
+    image: rancher/k8s:v1.12.10-rancher1-1
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: orchestration=true
-        {{- end }}
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent.role: environmentAdmin
+        io.rancher.stack_service.name: $${stack_name}/scheduler
     links:
         - kubernetes
 
@@ -361,69 +263,47 @@ controller-manager:
         - --kubeconfig=/etc/kubernetes/ssl/kubeconfig
         - --allow-untagged-cloud
         - --cloud-provider=${CLOUD_PROVIDER}
-        {{- if (or (eq .Values.CLOUD_PROVIDER "azure") (and (eq .Values.CLOUD_PROVIDER "aws") (ne .Values.CLOUD_PROVIDER_CONFIG ""))) }}
-        - --cloud-config=/etc/kubernetes/cloud-provider-config
-        {{- end }}
         - --address=0.0.0.0
         - --root-ca-file=/etc/kubernetes/ssl/ca.pem
         - --service-account-private-key-file=/etc/kubernetes/ssl/key.pem
         - --horizontal-pod-autoscaler-use-rest-clients=false
-        {{- range $i, $elem := splitPreserveQuotes .Values.ADDITIONAL_KUBECONTROLLERMANAGER_FLAGS }}
-        - {{ $elem }}
-        {{- end }}
     environment:
         CLOUD_PROVIDER: ${CLOUD_PROVIDER}
         CLOUD_PROVIDER_CONFIG: |
           ${CLOUD_PROVIDER_CONFIG}
-        {{- if ne .Values.HTTP_PROXY "" }}
-        HTTP_PROXY: ${HTTP_PROXY}
-        HTTPS_PROXY: ${HTTP_PROXY}
-        NO_PROXY: ${NO_PROXY}
-        {{- end }}
-        {{- if eq .Values.CLOUD_PROVIDER "azure" }}
-        AZURE_TENANT_ID: ${AZURE_TENANT_ID}
-        AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
-        AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
-        AZURE_SEC_GROUP: ${AZURE_SEC_GROUP}
-        AZURE_CLOUD: ${AZURE_CLOUD}
-        {{- end }}
-    image: {{$k8sImage}}
+    image: rancher/k8s:v1.12.10-rancher1-1
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: orchestration=true
-        {{- end }}
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent.role: environmentAdmin
+        io.rancher.stack_service.name: $${stack_name}/controller-manager
     links:
         - kubernetes
 
 rancher-kubernetes-agent:
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: orchestration=true
-        {{- end }}
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent.role: agent,environmentAdmin
         io.rancher.container.agent_service.labels_provider: "true"
         io.rancher.k8s.agent: "true"
+        io.rancher.stack_service.name: $${stack_name}/rancher-kubernetes-agent
     environment:
         KUBERNETES_URL: https://kubernetes.kubernetes.rancher.internal:6443
-    image: {{$k8sAgentImage}}
+    image: rancher/kubernetes-agent:v0.6.9
     privileged: true
     volumes:
         - /var/run/docker.sock:/var/run/docker.sock
     links:
         - kubernetes
 
-{{- if eq .Values.ENABLE_RANCHER_INGRESS_CONTROLLER "true" }}
 rancher-ingress-controller:
-    image: {{$ingressControllerImage}}
+    image: rancher/lb-service-rancher:v0.9.13
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: orchestration=true
-        {{- end }}
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent.role: environmentAdmin
+        io.rancher.stack_service.name: $${stack_name}/rancher-ingress-controller
     environment:
         KUBERNETES_URL: https://kubernetes.kubernetes.rancher.internal:6443
         RANCHER_LB_SEPARATOR: $RANCHER_LB_SEPARATOR
@@ -443,17 +323,15 @@ rancher-ingress-controller:
         healthy_threshold: 2
         initializing_timeout: 60000
         reinitializing_timeout: 60000
-{{- end }}
 
 rancher-kubernetes-auth:
-    image: {{$k8sAuthImage}}
+    image: rancher/kubernetes-auth:v0.0.8
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: orchestration=true
-        {{- end }}
         io.rancher.scheduler.affinity:container_label: io.rancher.stack_service.name=$${stack_name}/kubernetes
         io.rancher.container.create_agent: "true"
         io.rancher.container.agent.role: environmentAdmin
+        io.rancher.stack_service.name: $${stack_name}/rancher-kubernetes-auth
     health_check:
         request_line: GET /healthcheck HTTP/1.0
         port: 10240
@@ -464,15 +342,13 @@ rancher-kubernetes-auth:
         initializing_timeout: 60000
         reinitializing_timeout: 60000
 
-{{- if eq .Values.ENABLE_ADDONS "true" }}
 addon-starter:
-    image: {{$k8sImage}}
+    image: rancher/k8s:v1.12.10-rancher1-1
     labels:
-        {{- if eq .Values.CONSTRAINT_TYPE "required" }}
         io.rancher.scheduler.affinity:host_label: orchestration=true
-        {{- end }}
         io.rancher.container.create_agent: 'true'
         io.rancher.container.agent.role: environmentAdmin
+        io.rancher.stack_service.name: $${stack_name}/addon-starter
     environment:
         KUBERNETES_URL: https://kubernetes.kubernetes.rancher.internal:6443
         REGISTRY: ${REGISTRY}
@@ -497,4 +373,3 @@ addon-starter:
         healthy_threshold: 2
         initializing_timeout: 60000
         reinitializing_timeout: 60000
-{{- end }}
