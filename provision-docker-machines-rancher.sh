@@ -245,23 +245,23 @@ echo " "
 echo "Converting templates in files, using project prefix for unique file name..."
 echo "Starting Kuberbetes Cluster: $PROJECT_NAME Kubernetes"
 cp $FOLDER/kubernetes/docker-compose.2.yml $FOLDER/kubernetes/${PREFIX}docker-compose.yml
-sed -i 's/\$\${stack_name}/$PROJECT_NAME-kubernetes/g' $FOLDER/kubernetes/${PREFIX}docker-compose.yml
-sed -i 's/\$\${service_name}/optiim-kubernetes/g' $FOLDER/kubernetes/${PREFIX}docker-compose.yml
+eval "sed -i 's/\\\$\\\${stack_name}/$PROJECT_NAME-kubernetes/g' $FOLDER/kubernetes/${PREFIX}docker-compose.yml"
+eval "sed -i 's/\\\$\\\${service_name}/optiim-kubernetes/g' $FOLDER/kubernetes/${PREFIX}docker-compose.yml"
 
 CLUSTER_IP_PRFIX="10.43.0"
 if [ "" != "$KUNERNETES_CLUSTER_IP_PRFIX" ]; then
 	CLUSTER_IP_PRFIX="$KUNERNETES_CLUSTER_IP_PRFIX"
 fi
 cp $FOLDER/kubernetes/answers.2.txt $FOLDER/kubernetes/${PREFIX}answers.txt
-sed -i 's/\$\$(master_ip}/$IP/g' $FOLDER/kubernetes/${PREFIX}answers.txt
-sed -i 's/\$\$(cluster_ip_prefix}/$CLUSTER_IP_PRFIX/g' $FOLDER/kubernetes/${PREFIX}answers.txt
+eval "sed -i 's/\\\$\\\$(master_ip}/$IP/g' $FOLDER/kubernetes/${PREFIX}answers.txt"
+eval "sed -i 's/\\\$\\\$(cluster_ip_prefix}/$CLUSTER_IP_PRFIX/g' $FOLDER/kubernetes/${PREFIX}answers.txt"
 echo "Starting Kuberbetes Cluster: $PROJECT_NAME Kubernetes"
 $RANCHER_COMPOSE_CMD \
- --file $FOLDER/kubernetes/${PREFIX}docker-compose.yml \
- --env-file $FOLDER/kubernetes/${PREFIX}answers.txt \
- --rancher-file $FOLDER/kubernetes/rancher-compose.yml \
+ --file "$FOLDER/kubernetes/${PREFIX}docker-compose.yml" \
+ --env-file "$FOLDER/kubernetes/${PREFIX}answers.txt" \
+ --rancher-file "$FOLDER/kubernetes/rancher-compose.yml" \
  --project-name "$PROJECT_NAME Kubernetes" \
- --url http://$IP:8080/v2-beta/projects/$PROJECT_ID/stacks up -d --pull
-echo "Removung converted templates in files..."
-rm -f $FOLDER/kubernetes/${PREFIX}docker-compose.yml
-rm -f $FOLDER/kubernetes/${PREFIX}answers.txt
+ --url "http://$IP:8080/v2-beta/projects/$PROJECT_ID/stacks" up -d --pull
+echo "Removing converted templates in files..."
+rm -f "$FOLDER/kubernetes/${PREFIX}docker-compose.yml"
+rm -f "$FOLDER/kubernetes/${PREFIX}answers.txt"
