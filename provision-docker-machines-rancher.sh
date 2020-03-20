@@ -1,5 +1,21 @@
 #!/bin/sh
 
+FOLDER="$(realpath "$(dirname "$0")")"
+
+RANCHER_NODES=2
+
+
+function checkNumber() {
+	case $1 in
+		''|*[!0-9]*) echo "false" ;;
+		*) echo "true" ;;
+	esac
+}
+
+if [ "" != "$RANCHER_KUBERNETES_NODES" ] && [ "true" = "$(checkNumber $RANCHER_KUBERNETES_NODES)" ]; then
+	RANCHER_NODES=$RANCHER_KUBERNETES_NODES
+fi
+
 function usage(){
 	echo "provision-docker-machine-rancher.sh  [project id] {project name} {nodes_prefix} [-f]"
 	echo "  project id     Rancher project id"

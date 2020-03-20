@@ -1,0 +1,1 @@
+yes\n scp -q install-docker.sh optiim-rancher-worker-1:/home/docker
