@@ -374,16 +374,6 @@ while [ "" = "$(${CMD_PREFIX}curl -sL http://$IP1:8080/v1 2> /dev/null)" ]; do e
 PROJECT_ID="$(${CMD_PREFIX}curl -sL http://$IP1:8080/v1/projects | ${CMD_PREFIX}jq -r '.data[0].id')"
 echo "Waiting 60 seconds for giving the API engine time to read database data..."
 sleep 60
-REG_TOKEN_REFERENCE="$(${CMD_PREFIX}curl -sL -X POST -H 'Accept: application/json' http://$IP1:8080/v1/registrationtokens?projectId=$PROJECT_ID 2> /dev/null|${CMD_PREFIX}/jq -r '.actions.activate' 2> /dev/null)"
-sleep 5
-COMMAND="$(${CMD_PREFIX}curl -s -X GET $REG_TOKEN_REFERENCE 2> /dev/null | ${CMD_PREFIX}jq -r '.command' 2> /dev/null)"
-#Place server lables for kubernetes
-COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"etcd=true\&orchestration=true\" /g')"
-	if [ "" != "$COMMAND" ]; then
-		docker-machine ssh "${PREFIX}rancher-node-master" "$COMMAND"
-	else
-		echo "Please register your worker server ${PREFIX}rancher-node-master manually on the web interface at: http://$IP1:8080 -> Host (use labels: etcd=true and orchestration=true)"
-	fi
 
 
 IP_W=()
@@ -402,8 +392,10 @@ for (( i=1; i<=$RANCHER_NODES; i++ )); do
 	REG_TOKEN_REFERENCE="$(${CMD_PREFIX}curl -sL -X POST -H 'Accept: application/json' http://$IP1:8080/v1/registrationtokens?projectId=$PROJECT_ID 2> /dev/null|${CMD_PREFIX}/jq -r '.actions.activate' 2> /dev/null)"
 	sleep 5
 	COMMAND="$(${CMD_PREFIX}curl -s -X GET $REG_TOKEN_REFERENCE 2> /dev/null | ${CMD_PREFIX}jq -r '.command' 2> /dev/null)"
-	#Place server lables for kubernetes
-	#COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"etcd=true\&orchestration=true\" /g')"
+	if [ "1" == "$i" ]; then
+		#Place server lables for kubernetes
+		COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"etcd=true\&orchestration=true\" /g')"
+	fi
 	echo "SLAVE Rancher node #${i} Command: $COMMAND"
 	if [ "" != "$COMMAND" ]; then
 		docker-machine ssh "${PREFIX}rancher-worker-${i}" "$COMMAND"

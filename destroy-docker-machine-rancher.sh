@@ -20,11 +20,10 @@ if [ "" != "$PREFIX" ]; then
 	PREFIX="${PREFIX}-"
 fi
 
-echo "Destroying MASTER Rancher node ..."
-docker-machine rm -f ${PREFIX}rancher-node-master
 for (( i=1; i<=$RANCHER_NODES; i++ )); do
 	echo "Destroying SLAVE Rancher node #${i} ..."
 	docker-machine rm -f "${PREFIX}rancher-worker-${i}"
 done
-#docker-machine rm -f ${PREFIX}rancher-node-2
-#docker-machine rm -f ${PREFIX}rancher-node-3
+
+echo "Destroying MASTER Rancher node ..."
+docker-machine rm -f ${PREFIX}rancher-node-master
