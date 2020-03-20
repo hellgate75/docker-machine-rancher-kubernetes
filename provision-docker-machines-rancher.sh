@@ -86,6 +86,9 @@ PREFIX="$3"
 CMD_PREFIX=""
 PASS_PRFX="$3"
 PROJECT_NAME="$2"
+#format correctly project name lower case and spaces as '-'
+PROJECT_NAME="$(echo ${PROJECT_NAME,,}|sed -e 's/ /-/g')"
+
 
 if [ "windows" == "$($FOLDER/os.sh)" ]; then
 	echo "Welcome windows user ..."
@@ -217,11 +220,7 @@ while [ "" == "$(${CMD_PREFIX}curl -sL http://$IP:8080/v2-beta 2> /dev/null)" ];
 
 echo "Rancher server http://$IP:8080/v2-beta active!!"
 
-PROJECT_NAME=
-
-
-
-PROJECT_NAME="$(retrieveGETCallFromServer "$IP" "projects/$PROJECT_ID" "name" "$CMD_PREFIX" )"
+RANCHER_PROJECT_NAME="$(retrieveGETCallFromServer "$IP" "projects/$PROJECT_ID" "name" "$CMD_PREFIX" )"
 
 if [ "" = "$PROJECT_NAME" ]; then
 	echo "Project id: $PROJECT_ID not found on the Rancher Server."
@@ -243,10 +242,13 @@ fi
 echo " "
 
 echo "Converting templates in files, using project prefix for unique file name..."
-echo "Starting Kuberbetes Cluster: $PROJECT_NAME Kubernetes"
 cp $FOLDER/kubernetes/docker-compose.2.yml $FOLDER/kubernetes/${PREFIX}docker-compose.yml
 eval "sed -i 's/\\\$\\\${stack_name}/$PROJECT_NAME-kubernetes/g' $FOLDER/kubernetes/${PREFIX}docker-compose.yml"
 eval "sed -i 's/\\\$\\\${service_name}/optiim-kubernetes/g' $FOLDER/kubernetes/${PREFIX}docker-compose.yml"
+echo "Converted docker compose file:"
+cat "$FOLDER/kubernetes/${PREFIX}docker-compose.yml"
+echo " "
+echo " "
 
 CLUSTER_IP_PRFIX="10.43.0"
 if [ "" != "$KUNERNETES_CLUSTER_IP_PRFIX" ]; then
@@ -255,7 +257,13 @@ fi
 cp $FOLDER/kubernetes/answers.2.txt $FOLDER/kubernetes/${PREFIX}answers.txt
 eval "sed -i 's/\\\$\\\$(master_ip}/$IP/g' $FOLDER/kubernetes/${PREFIX}answers.txt"
 eval "sed -i 's/\\\$\\\$(cluster_ip_prefix}/$CLUSTER_IP_PRFIX/g' $FOLDER/kubernetes/${PREFIX}answers.txt"
+echo "Converted docker environment file:"
+cat "$FOLDER/kubernetes/${PREFIX}answers.txt"
+echo " "
+echo " "
+
 echo "Starting Kuberbetes Cluster: $PROJECT_NAME Kubernetes"
+echo " "
 $RANCHER_COMPOSE_CMD \
  --file "$FOLDER/kubernetes/${PREFIX}docker-compose.yml" \
  --env-file "$FOLDER/kubernetes/${PREFIX}answers.txt" \

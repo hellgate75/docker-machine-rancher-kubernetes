@@ -2,6 +2,10 @@
 
 FOLDER="$(realpath "$(dirname "$0")")"
 
+function retrieveGETCallFromServer {
+	echo "$(eval "$4/curl -X GET -H 'Accept: application/json' -sL http://$1:8080/v2-beta/$2 2> /dev/null|$4/jq -r '.${3}' 2> /dev/null|grep -v null")"
+}
+
 RANCHER_NODES=2
 
 function checkNumber() {
@@ -378,44 +382,68 @@ sleep 60
 
 IP_W=()
 for (( i=1; i<=$RANCHER_NODES; i++ )); do
+	if [ "1" == "$i" ]; then
+		MACHINE_NAME="${PREFIX}rancher-kubernetes-coordinator"
+	else
+		let INDEX=i-1
+		MACHINE_NAME="${PREFIX}rancher-worker-${INDEX}"
+	fi
 	echo "Creating SLAVE Rancher node #${i} ..."
-	docker-machine create $MACHINE_RESOURCES $ISO_IMAGE "${PREFIX}rancher-worker-${i}"
+	docker-machine create $MACHINE_RESOURCES $ISO_IMAGE "${MACHINE_NAME}"
 	if [ "-gce" = "$ENGINE" ]; then
 		echo "SLAVE Rancher node #${i}: installing docker on host ..."
-		docker-machine.exe ssh "${PREFIX}rancher-worker-${i}" "echo '$( cat $FOLDER/install-docker.sh )' > ./install-docker.sh && chmod 777 ./install-docker.sh && ./install-docker.sh"
+		docker-machine.exe ssh "${MACHINE_NAME}" "echo '$( cat $FOLDER/install-docker.sh )' > ./install-docker.sh && chmod 777 ./install-docker.sh && ./install-docker.sh"
 	fi
 	echo "SLAVE Rancher node #${i} installing curl container ..."
-	docker-machine ssh "${PREFIX}rancher-worker-${i}" "sudo sh -c \"echo \\\"docker run --rm curlimages/curl \$ @\\\" > /usr/bin/curl && chmod +x /usr/bin/curl && sed -i 's/$ @/\\\$@/g' /usr/bin/curl && curl --help \""
-	docker-machine ssh "${PREFIX}rancher-worker-${i}" "sudo mkdir -p var/etcd/backups"
-	IP_W[${i}]="$(docker-machine ip "${PREFIX}rancher-worker-${i}")"
+	docker-machine ssh "${MACHINE_NAME}" "sudo sh -c \"echo \\\"docker run --rm curlimages/curl \$ @\\\" > /usr/bin/curl && chmod +x /usr/bin/curl && sed -i 's/$ @/\\\$@/g' /usr/bin/curl && curl --help \""
+	docker-machine ssh "${MACHINE_NAME}" "sudo mkdir -p var/etcd/backups"
+	IP_W[${i}]="$(docker-machine ip "${MACHINE_NAME}")"
 	echo "SLAVE Rancher node #${i} Ip: $IP2"
 	REG_TOKEN_REFERENCE="$(${CMD_PREFIX}curl -sL -X POST -H 'Accept: application/json' http://$IP1:8080/v1/registrationtokens?projectId=$PROJECT_ID 2> /dev/null|${CMD_PREFIX}/jq -r '.actions.activate' 2> /dev/null)"
 	sleep 5
 	COMMAND="$(${CMD_PREFIX}curl -s -X GET $REG_TOKEN_REFERENCE 2> /dev/null | ${CMD_PREFIX}jq -r '.command' 2> /dev/null)"
 	if [ "1" == "$i" ]; then
-		#Place server lables for kubernetes
+		#Place server lables for kubernetes coordinator node
 		COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"etcd=true\&orchestration=true\" /g')"
+	else
+		#Place server lables for kubernetes worker node
+		COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"copute=true\&worker=true\" /g')"
 	fi
 	echo "SLAVE Rancher node #${i} Command: $COMMAND"
 	if [ "" != "$COMMAND" ]; then
-		docker-machine ssh "${PREFIX}rancher-worker-${i}" "$COMMAND"
+		docker-machine ssh "${MACHINE_NAME}" "$COMMAND"
 	else
-		echo "Please register your server ${PREFIX}rancher-worker-${i} manually on the web interface at: http://$IP1:8080 -> Host"
+		echo "Please register your server ${MACHINE_NAME} manually on the web interface at: http://$IP1:8080 -> Host"
 	fi
 	sleep 30
 done
 
-echo "----------------------------------"
-echo "Master: $IP1"
+echo "--------------------------------------------------------------------"
+echo "Rancher Nodes Address List"
+echo "--------------------------------------------------------------------"
+echo "Rancher Master Node: $IP1"
 for (( i=1; i<=$RANCHER_NODES; i++ )); do
 	IP_X="${IP_W[${i}]}"
-	echo "Slave #${i} IP: $IP_X"
+	if [ "1" == "$i" ]; then
+		echo "Kubernetes Coordinator Node: $IP_X"
+	else
+		let INDEX=i-1
+		echo "Slave #${INDEX} Node: $IP_X"
+	fi
 done
-#echo "Slave: $IP2"
-#echo "Slave: $IP3"
-echo "Rancher Server Url: http://$IP1:8080"
-echo "----------------------------------"
-echo ""
-echo "Provisinging Rancher Kubernetes cluster"
-$FOLDER/provision-docker-machines-rancher.sh "$PROJECT_ID" "${PASS_PRFX}" "${PASS_PRFX}" "$3"
+echo "--------------------------------------------------------------------"
+echo "  "
+echo "  "
+echo "--------------------------------------------------------------------"
+echo "Rancher Services Url(s)"
+echo "--------------------------------------------------------------------"
+echo "Rancher Server: http://$IP1:8080"
+echo "Kubernetes Dashboard: http://$IP1:8080"
+echo "--------------------------------------------------------------------"
+echo "  "
+echo "  "
+echo " "
+echo "Provisinging Rancher Kubernetes cluster ..."
+RANCHER_PROJECT_NAME="$(retrieveGETCallFromServer "$IP1" "projects/$PROJECT_ID" "name" "$CMD_PREFIX" )"
+$FOLDER/provision-docker-machines-rancher.sh "$PROJECT_ID" "${RANCHER_PROJECT_NAME}" "${PASS_PRFX}" "$3"
 exit 0

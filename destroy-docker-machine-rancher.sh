@@ -22,7 +22,13 @@ fi
 
 for (( i=1; i<=$RANCHER_NODES; i++ )); do
 	echo "Destroying SLAVE Rancher node #${i} ..."
-	docker-machine rm -f "${PREFIX}rancher-worker-${i}"
+	if [ "1" == "$i" ]; then
+		MACHINE_NAME="${PREFIX}rancher-kubernetes-coordinator"
+	else
+		let INDEX=i-1
+		MACHINE_NAME="${PREFIX}rancher-worker-${INDEX}"
+	fi
+	docker-machine rm -f "${MACHINE_NAME}"
 done
 
 echo "Destroying MASTER Rancher node ..."

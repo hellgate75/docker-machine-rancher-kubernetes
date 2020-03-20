@@ -27,8 +27,8 @@ kubelet:
         - --tls-cipher-suites=${KUBERNETES_CIPHER_SUITES}
     environment:
         CLOUD_PROVIDER: ${CLOUD_PROVIDER}
-        CLOUD_PROVIDER_CONFIG: |
-          ${CLOUD_PROVIDER_CONFIG}
+#        CLOUD_PROVIDER_CONFIG: |
+#          ${CLOUD_PROVIDER_CONFIG}
     image: rancher/k8s:v1.12.10-rancher1-1
     volumes:
         - /run:/run:rprivate
@@ -76,8 +76,8 @@ kubelet-unschedulable:
         - --tls-cipher-suites=${KUBERNETES_CIPHER_SUITES}
     environment:
         CLOUD_PROVIDER: ${CLOUD_PROVIDER}
-        CLOUD_PROVIDER_CONFIG: |
-          ${CLOUD_PROVIDER_CONFIG}
+#        CLOUD_PROVIDER_CONFIG: |
+#          ${CLOUD_PROVIDER_CONFIG}
     image: rancher/k8s:v1.12.10-rancher1-1
     volumes:
         - /run:/run:rprivate
@@ -191,8 +191,8 @@ kubernetes:
         - --tls-cipher-suites=${KUBERNETES_CIPHER_SUITES}
     environment:
         CLOUD_PROVIDER: ${CLOUD_PROVIDER}
-        CLOUD_PROVIDER_CONFIG: |
-          ${CLOUD_PROVIDER_CONFIG}
+#        CLOUD_PROVIDER_CONFIG: |
+#          ${CLOUD_PROVIDER_CONFIG}
         KUBERNETES_URL: https://kubernetes.kubernetes.rancher.internal:6443
     image: rancher/k8s:v1.12.10-rancher1-1
     links:
@@ -269,8 +269,8 @@ controller-manager:
         - --horizontal-pod-autoscaler-use-rest-clients=false
     environment:
         CLOUD_PROVIDER: ${CLOUD_PROVIDER}
-        CLOUD_PROVIDER_CONFIG: |
-          ${CLOUD_PROVIDER_CONFIG}
+#        CLOUD_PROVIDER_CONFIG: |
+#          ${CLOUD_PROVIDER_CONFIG}
     image: rancher/k8s:v1.12.10-rancher1-1
     labels:
         io.rancher.scheduler.affinity:host_label: orchestration=true
