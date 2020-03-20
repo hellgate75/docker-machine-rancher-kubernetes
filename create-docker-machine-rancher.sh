@@ -404,10 +404,10 @@ for (( i=1; i<=$RANCHER_NODES; i++ )); do
 	COMMAND="$(${CMD_PREFIX}curl -s -X GET $REG_TOKEN_REFERENCE 2> /dev/null | ${CMD_PREFIX}jq -r '.command' 2> /dev/null)"
 	if [ "1" == "$i" ]; then
 		#Place server lables for kubernetes coordinator node
-		COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"etcd=true\&orchestration=true\" /g')"
+		COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"etcd=true\&orchestration=true\&compute=false\&worker=false\" /g')"
 	else
 		#Place server lables for kubernetes worker node
-		COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"copute=true\&worker=true\" /g')"
+		COMMAND="$(echo $COMMAND|sed 's/ docker run / docker run  -e CATTLE_HOST_LABELS=\"etcd=false\&orchestration=false\&compute=true\&worker=true\" /g')"
 	fi
 	echo "SLAVE Rancher node #${i} Command: $COMMAND"
 	if [ "" != "$COMMAND" ]; then
